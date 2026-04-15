@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+build/
+dist/
+dist2/
+*.exe
+*.spec.bak
+.claude/
+
+# Binaries (large, not for git)
+bin/xray.exe
+bin/tun2socks.exe
+bin/wintun.dll
+bin/geoip.dat
+bin/geosite.dat
