@@ -489,12 +489,16 @@ class MainWindow(QMainWindow):
     # ── Server label ──────────────────────────────────────────────
 
     def _refresh_server_label(self):
-        from ..core.vless import parse_vless
+        from ..core.link_parser import parse_link
         link = self.settings.active_server
         if link:
-            parsed = parse_vless(link)
-            name = parsed["alias"] if parsed else link[:30]
-            self.lbl_server.setText(f"↗  {name}")
+            parsed = parse_link(link)
+            if parsed:
+                proto = parsed["protocol"].upper()
+                name = parsed["alias"]
+                self.lbl_server.setText(f"↗  [{proto}] {name}")
+            else:
+                self.lbl_server.setText(f"↗  {link[:30]}")
         else:
             self.lbl_server.setText("нет сервера")
 

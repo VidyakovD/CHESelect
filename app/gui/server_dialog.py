@@ -1,4 +1,4 @@
-"""Dialog for managing VLESS server links."""
+"""Dialog for managing proxy server links (multi-protocol)."""
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from PySide6.QtGui  import QGuiApplication
 
-from ..core.vless import parse_vless
+from ..core.link_parser import parse_link
 
 
 class ServerDialog(QDialog):
@@ -37,12 +37,12 @@ class ServerDialog(QDialog):
         self._reload()
 
         # Paste area
-        hint = QLabel("Вставьте VLESS ссылку:")
+        hint = QLabel("Вставьте ссылку на сервер:")
         hint.setStyleSheet("color: #44445a; font-size: 12px;")
         lay.addWidget(hint)
 
         self.input = QTextEdit()
-        self.input.setPlaceholderText("vless://...")
+        self.input.setPlaceholderText("vless://, vmess://, ss://, trojan://, hysteria2://, tuic://, wireguard://...")
         self.input.setFixedHeight(80)
         self.input.setStyleSheet(
             "background: #14141c; border: 1px solid #1e1e2a; border-radius: 8px;"
@@ -74,9 +74,10 @@ class ServerDialog(QDialog):
     def _reload(self):
         self.list_servers.clear()
         for link in self.settings.servers:
-            parsed = parse_vless(link)
+            parsed = parse_link(link)
             name = parsed["alias"] if parsed else link[:40]
-            server_str = f"{parsed['host']}:{parsed['port']}" if parsed else ""
+            proto = parsed["protocol"].upper() if parsed else "?"
+            server_str = f"[{proto}] {parsed['host']}:{parsed['port']}" if parsed else ""
             item = QListWidgetItem(f"{name}\n{server_str}")
             item.setData(Qt.UserRole, link)
             self.list_servers.addItem(item)
@@ -93,7 +94,9 @@ class ServerDialog(QDialog):
     def _paste_from_clipboard(self):
         cb = QGuiApplication.clipboard()
         text = cb.text().strip()
-        if text.startswith("vless://"):
+        schemes = ("vless://", "vmess://", "ss://", "trojan://",
+                   "hysteria2://", "hy2://", "tuic://", "wireguard://", "wg://")
+        if any(text.startswith(s) for s in schemes):
             self.input.setPlainText(text)
         else:
             self.input.setPlainText("")
@@ -102,9 +105,9 @@ class ServerDialog(QDialog):
         link = self.input.toPlainText().strip()
         if not link:
             return
-        parsed = parse_vless(link)
+        parsed = parse_link(link)
         if not parsed:
-            QMessageBox.warning(self, "Ошибка", "Неверная VLESS ссылка.")
+            QMessageBox.warning(self, "Ошибка", "Неверная ссылка. Поддерживаются:\nvless, vmess, ss, trojan, hysteria2, tuic, wireguard")
             return
         self.settings.add_server(link)
         self.input.clear()

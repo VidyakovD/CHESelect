@@ -10,7 +10,7 @@ import atexit
 import ctypes
 import sys
 import threading
-from .vless           import parse_vless
+from .link_parser     import parse_link, needs_singbox
 from .config          import build_config
 from .singbox_config  import build_singbox_config
 from .xray            import XrayManager
@@ -31,8 +31,9 @@ class VpnController:
         self.on_state_change = on_state_change or (lambda s, d: None)
         self.on_log          = on_log          or (lambda l: None)
 
-        self._state      = "disconnected"
-        self._tun_active = False
+        self._state        = "disconnected"
+        self._tun_active   = False
+        self._using_singbox = False
 
         self._xray    = XrayManager(on_status=self._on_engine_status, on_log=self._fwd_log)
         self._singbox = SingBoxManager(on_status=self._on_engine_status, on_log=self._fwd_log)
@@ -56,34 +57,45 @@ class VpnController:
 
         server_link = self.settings.active_server
         if not server_link:
-            self._set_state("error", "Нет сервера. Добавьте VLESS ссылку.")
+            self._set_state("error", "Нет сервера. Добавьте ссылку.")
             return
 
-        server = parse_vless(server_link)
+        server = parse_link(server_link)
         if not server:
-            self._set_state("error", "Неверная VLESS ссылка.")
+            self._set_state("error", "Неверная ссылка на сервер.")
             return
 
         tun_mode = self.settings.tun_mode
+        use_singbox = tun_mode or needs_singbox(server)
 
         if tun_mode and not _is_admin():
             self._set_state("error", "TUN-режим требует прав администратора.\nЗапустите приложение от имени админа.")
             return
 
-        if tun_mode:
-            # ── TUN mode via sing-box ─────────────────────────
+        if use_singbox:
+            # ── sing-box (TUN or sing-box-only protocols) ─────
             config = build_singbox_config(
                 server,
                 self.settings.domains,
                 self.settings.processes,
+                tun_mode=tun_mode,
             )
             ok = self._singbox.start(config)
             if not ok:
                 self._set_state("error", "Не удалось запустить sing-box.")
                 return
-            self._tun_active = True
+
+            # If not TUN but sing-box-only protocol → set system proxy
+            if not tun_mode:
+                if not set_proxy():
+                    self._singbox.stop()
+                    self._set_state("error", "Не удалось установить системный прокси.")
+                    return
+
+            self._tun_active = tun_mode
+            self._using_singbox = True
         else:
-            # ── Proxy mode via Xray ───────────────────────────
+            # ── Xray (proxy mode, Xray-compatible protocols) ──
             config = build_config(
                 server,
                 self.settings.domains,
@@ -99,17 +111,20 @@ class VpnController:
                 self._set_state("error", "Не удалось установить системный прокси.")
                 return
             self._tun_active = False
+            self._using_singbox = False
 
         self._set_state("connected")
 
     def _disconnect(self):
         self._set_state("disconnecting")
-        if self._tun_active:
+        if not self._tun_active:
+            clear_proxy()
+        if self._using_singbox:
             self._singbox.stop()
         else:
-            clear_proxy()
             self._xray.stop()
         self._tun_active = False
+        self._using_singbox = False
         self._set_state("disconnected")
 
     # ------------------------------------------------------------------
@@ -119,12 +134,14 @@ class VpnController:
 
     def _on_engine_status(self, status: str):
         if status == "crashed" and self._state == "connected":
-            if self._tun_active:
+            if not self._tun_active:
+                clear_proxy()
+            if self._using_singbox:
                 self._singbox.stop()
             else:
-                clear_proxy()
                 self._xray.stop()
             self._tun_active = False
+            self._using_singbox = False
             self._set_state("error", "VPN-движок неожиданно завершился.")
 
     def _fwd_log(self, line: str):

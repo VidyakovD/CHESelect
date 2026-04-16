@@ -110,23 +110,7 @@ def build_config(server: dict, domains: list[str], processes: list[str], tun_mod
                 "protocol": "freedom",
                 "settings": {}
             },
-            {
-                "tag":      "proxy",
-                "protocol": "vless",
-                "settings": {
-                    "vnext": [{
-                        "address": server["host"],
-                        "port":    server["port"],
-                        "users":   [{
-                            "id":         server["uuid"],
-                            "encryption": server["encryption"] or "none",
-                            "flow":       ""
-                        }]
-                    }]
-                },
-                "streamSettings": stream,
-                "mux": {"enabled": False}
-            },
+            _build_proxy_outbound(server, stream),
             {
                 "tag":      "block",
                 "protocol": "blackhole",
@@ -252,3 +236,66 @@ def _build_stream(server: dict) -> dict:
         stream[tls_key] = security_settings
 
     return stream
+
+
+def _build_proxy_outbound(server: dict, stream: dict) -> dict:
+    """Build Xray proxy outbound for the given protocol."""
+    proto = server.get("protocol", "vless")
+
+    if proto == "vless":
+        return {
+            "tag": "proxy", "protocol": "vless",
+            "settings": {
+                "vnext": [{
+                    "address": server["host"], "port": server["port"],
+                    "users": [{"id": server.get("uuid", ""),
+                               "encryption": server.get("encryption", "none") or "none",
+                               "flow": ""}]
+                }]
+            },
+            "streamSettings": stream, "mux": {"enabled": False}
+        }
+
+    elif proto == "vmess":
+        return {
+            "tag": "proxy", "protocol": "vmess",
+            "settings": {
+                "vnext": [{
+                    "address": server["host"], "port": server["port"],
+                    "users": [{"id": server.get("uuid", ""),
+                               "alterId": server.get("alter_id", 0),
+                               "security": server.get("security", "auto")}]
+                }]
+            },
+            "streamSettings": stream, "mux": {"enabled": False}
+        }
+
+    elif proto == "shadowsocks":
+        return {
+            "tag": "proxy", "protocol": "shadowsocks",
+            "settings": {
+                "servers": [{
+                    "address":  server["host"],
+                    "port":     server["port"],
+                    "method":   server.get("method", "aes-256-gcm"),
+                    "password": server.get("password", ""),
+                }]
+            },
+            "streamSettings": stream,
+        }
+
+    elif proto == "trojan":
+        return {
+            "tag": "proxy", "protocol": "trojan",
+            "settings": {
+                "servers": [{
+                    "address":  server["host"],
+                    "port":     server["port"],
+                    "password": server.get("password", ""),
+                }]
+            },
+            "streamSettings": stream, "mux": {"enabled": False}
+        }
+
+    # Fallback — treat as VLESS
+    return _build_proxy_outbound({**server, "protocol": "vless"}, stream)
