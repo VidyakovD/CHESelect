@@ -51,6 +51,10 @@ class VpnController:
     def disconnect(self):
         threading.Thread(target=self._disconnect, daemon=True).start()
 
+    def reconnect(self):
+        """Safe reconnect: full stop → wait → start, all in one thread."""
+        threading.Thread(target=self._reconnect, daemon=True).start()
+
     # ------------------------------------------------------------------
     def _connect(self):
         self._set_state("connecting")
@@ -117,15 +121,27 @@ class VpnController:
 
     def _disconnect(self):
         self._set_state("disconnecting")
+        self._stop_all()
+        self._set_state("disconnected")
+
+    def _reconnect(self):
+        """Full stop → wait for TUN release → start."""
+        self._set_state("disconnecting")
+        self._stop_all()
+        import time
+        time.sleep(2)  # give OS time to release TUN adapter
+        self._connect()
+
+    def _stop_all(self):
+        """Synchronously stop everything."""
         if not self._tun_active:
             clear_proxy()
         if self._using_singbox:
             self._singbox.stop()
-        else:
+        if self._xray.is_running():
             self._xray.stop()
         self._tun_active = False
         self._using_singbox = False
-        self._set_state("disconnected")
 
     # ------------------------------------------------------------------
     def _set_state(self, state: str, detail: str = ""):
@@ -153,10 +169,12 @@ class VpnController:
         except Exception:
             pass
         try:
-            self._singbox.stop()
+            if self._singbox.is_running():
+                self._singbox.stop()
         except Exception:
             pass
         try:
-            self._xray.stop()
+            if self._xray.is_running():
+                self._xray.stop()
         except Exception:
             pass

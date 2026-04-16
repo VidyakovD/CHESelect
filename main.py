@@ -45,8 +45,19 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
 
-    # Clean up proxy left over from a previous crash
+    # Clean up leftovers from a previous crash
     clear_proxy()
+    # Kill any orphaned sing-box/xray processes
+    import subprocess
+    for proc_name in ("sing-box.exe", "xray.exe", "tun2socks.exe"):
+        try:
+            subprocess.run(
+                f'taskkill /F /IM "{proc_name}"',
+                shell=True, capture_output=True, timeout=3,
+                creationflags=0x08000000,
+            )
+        except Exception:
+            pass
 
     settings   = Settings()
     controller = VpnController(settings)

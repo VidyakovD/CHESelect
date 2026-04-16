@@ -454,8 +454,7 @@ class MainWindow(QMainWindow):
 
     def _reconnect_if_active(self):
         if self.vpn.state == "connected":
-            self.vpn.disconnect()
-            QTimer.singleShot(1500, self.vpn.connect)
+            self.vpn.reconnect()
 
     # ── Servers dialog ─────────────────────────────────────────────
 
