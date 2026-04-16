@@ -116,10 +116,16 @@ class TrayIcon(QSystemTrayIcon):
         self.window.activateWindow()
 
     def _quit_app(self):
-        # Stop VPN before quitting
+        # Stop VPN synchronously before quitting
+        from ..core.proxy import clear_proxy
         try:
-            if self.window.vpn.state == "connected":
-                self.window.vpn.disconnect()
+            clear_proxy()
+        except Exception:
+            pass
+        try:
+            vpn = self.window.vpn
+            if vpn.state == "connected":
+                vpn.disconnect_sync()
         except Exception:
             pass
         QApplication.quit()

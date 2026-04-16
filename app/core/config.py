@@ -31,14 +31,10 @@ def build_config(server: dict, domains: list[str], processes: list[str], tun_mod
     # --- Routing rules -------------------------------------------------
     routing_rules = []
 
-    # processName routing only works in TUN mode (not HTTP proxy).
-    if tun_mode and processes:
-        routing_rules.append({
-            "type":        "field",
-            "processName": processes,
-            "port":        "0-65535",
-            "outboundTag": "proxy"
-        })
+    # NOTE: processName routing does not work via tun2socks/SOCKS proxy —
+    # Xray can't see which process made the request through SOCKS.
+    # TUN mode is still useful: it captures ALL system traffic (not just
+    # browsers), so domain-based routing works for every app.
 
     # 2. Domain-based rules
     if domains:

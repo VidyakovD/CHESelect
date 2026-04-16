@@ -12,6 +12,7 @@ a = Analysis(
     datas=[
         # Xray binary + geo databases
         (str(ROOT / 'bin' / 'xray.exe'),       'bin'),
+        (str(ROOT / 'bin' / 'sing-box.exe'), 'bin'),
         (str(ROOT / 'bin' / 'tun2socks.exe'), 'bin'),
         (str(ROOT / 'bin' / 'wintun.dll'),    'bin'),
         (str(ROOT / 'bin' / 'geoip.dat'),     'bin'),

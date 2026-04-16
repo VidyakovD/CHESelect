@@ -1,219 +1,85 @@
 # SelectVPN
 
-Десктопный VPN-клиент для Windows с раздельным туннелированием (split-tunneling).
-Позволяет пропускать через VPN только выбранные сайты и приложения, а остальной трафик оставлять напрямую.
+Десктопный VPN-клиент для Windows с раздельным туннелированием.
+Через VPN идут только выбранные сайты и приложения — остальной интернет работает напрямую.
 
----
+![Windows](https://img.shields.io/badge/Windows-10%2F11-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 ## Возможности
 
-- **Раздельное туннелирование по доменам** — добавьте `youtube.com`, `chatgpt.com` и только они пойдут через VPN, остальной интернет работает напрямую
-- **Раздельное туннелирование по приложениям** (TUN-режим) — добавьте `telegram.exe`, `steam.exe` и весь их трафик пойдёт через VPN
-- **Два режима работы:**
-  - **Прокси-режим** (по умолчанию) — быстрый, не требует прав администратора, работает только с доменами
-  - **TUN-режим** — создаёт виртуальный сетевой адаптер, поддерживает роутинг по приложениям, требует прав администратора
-- **VLESS протокол** — поддержка транспортов xhttp, WebSocket, gRPC, TCP; шифрование Reality и TLS
-- **Системный трей** — приложение сворачивается в трей, работает в фоне
-- **Защита от дублей** — нельзя запустить два экземпляра одновременно
-- **Автоочистка прокси** — при крахе или закрытии приложения системный прокси автоматически сбрасывается
-- **Автообновление** — проверка новых версий через GitHub Releases
-
----
+- **Раздельное туннелирование по доменам** — youtube.com, chatgpt.com через VPN, остальное напрямую
+- **Раздельное туннелирование по приложениям** — Telegram, Steam, любые .exe через VPN (TUN-режим)
+- **Два режима:**
+  - **Прокси** (по умолчанию) — работает без прав админа, только домены
+  - **TUN** — виртуальный адаптер, домены + приложения, нужны права админа
+- **VLESS** — xhttp, WebSocket, gRPC, TCP; Reality и TLS
+- **Автообновление** через GitHub Releases
+- **Системный трей**, защита от дублей, автоочистка прокси
 
 ## Установка
 
-1. Скачайте последнюю версию `SelectVPN-Setup.exe` из [GitHub Releases](https://github.com/VidyakovD/CHESelect/releases)
-2. Запустите установщик (потребуются права администратора)
-3. Следуйте инструкциям мастера установки
-
-### Опции при установке:
-- Создание ярлыка на рабочем столе
-- Автозапуск при старте Windows
-
----
+Скачайте `SelectVPN-Setup.exe` из [Releases](https://github.com/VidyakovD/CHESelect/releases) и запустите.
 
 ## Быстрый старт
 
-### 1. Добавьте сервер
-- Откройте приложение
-- Нажмите **Серверы** внизу окна
-- Вставьте VLESS-ссылку (формат: `vless://uuid@host:port?...#Name`)
-- Нажмите **Добавить**
+1. **Серверы** → вставьте VLESS-ссылку → **Добавить**
+2. **ДОМЕНЫ** → введите `youtube.com` → **+**
+3. Нажмите кнопку включения
 
-### 2. Добавьте домены
-- Во вкладке **ДОМЕНЫ** введите адрес сайта, например `youtube.com`
-- Нажмите **+**
-- Можно вставлять полные URL — приложение автоматически извлечёт домен
+Для роутинга по приложениям: включите **TUN-режим** и запустите от имени администратора.
 
-### 3. Подключитесь
-- Нажмите большую кнопку включения
-- Статус изменится на **ПОДКЛЮЧЁН**
-- Только добавленные домены будут идти через VPN
+Подробная инструкция — в файле `Инструкция.txt`.
 
----
+## Сборка
 
-## Режимы работы
-
-### Прокси-режим (по умолчанию)
-
-Устанавливает системный HTTP-прокси. Браузеры и приложения, которые используют системные настройки прокси, будут направлять трафик через Xray.
-
-- Не требует прав администратора
-- Работает роутинг по **доменам**
-- Роутинг по приложениям **не работает** (прокси не видит имя процесса)
-
-### TUN-режим
-
-Создаёт виртуальный сетевой адаптер через wintun. Весь системный трафик проходит через него.
-
-- **Требует прав администратора** — запускайте приложение от имени админа
-- Работает роутинг по **доменам** и **приложениям**
-- Включается чекбоксом **TUN-режим** в главном окне
-
-#### Как включить TUN:
-1. Закройте приложение
-2. Запустите его **от имени администратора** (правая кнопка → Запуск от имени администратора)
-3. Поставьте галочку **TUN-режим**
-4. Добавьте приложения во вкладке **ПРИЛОЖЕНИЯ** (например `telegram.exe`)
-5. Нажмите кнопку подключения
-
----
-
-## Формат VLESS-ссылок
-
-```
-vless://uuid@server:port?type=xhttp&security=reality&sni=example.com&fp=chrome&pbk=...&sid=...#Name
-```
-
-### Поддерживаемые параметры:
-| Параметр | Описание | Значения |
-|----------|----------|----------|
-| `type` | Транспорт | `xhttp`, `ws`, `grpc`, `tcp` |
-| `security` | Шифрование | `reality`, `tls`, `none` |
-| `sni` | Server Name Indication | Домен |
-| `fp` | Fingerprint | `chrome`, `firefox`, `safari` |
-| `pbk` | Public Key (Reality) | Base64 ключ |
-| `sid` | Short ID (Reality) | Hex строка |
-| `path` | Путь | `/path` |
-| `mode` | Режим xhttp | `auto` |
-
----
-
-## Структура проекта
-
-```
-SelectVPN/
-  main.py              — точка входа, single-instance guard
-  app/
-    core/
-      vpn.py           — контроллер VPN (proxy/TUN режимы)
-      xray.py          — менеджер процесса xray.exe
-      tun.py           — менеджер TUN-адаптера (tun2socks)
-      proxy.py         — управление системным прокси Windows
-      config.py        — генератор конфига Xray
-      vless.py         — парсер VLESS-ссылок
-      _paths.py        — резолвер путей (dev/frozen)
-    gui/
-      main_window.py   — главное окно
-      power_button.py  — кнопка включения
-      server_dialog.py — диалог серверов
-      process_picker.py— выбор процессов
-      tray.py          — иконка в трее
-      styles.py        — тёмная тема
-    storage/
-      settings.py      — настройки (JSON в %APPDATA%)
-  bin/
-    xray.exe           — Xray-core
-    tun2socks.exe      — TUN → SOCKS5 мост
-    wintun.dll         — драйвер виртуального адаптера
-    geoip.dat          — гео-база IP адресов
-    geosite.dat        — гео-база доменов
-  assets/
-    icon.ico           — иконка приложения
-  SelectVPN.spec       — конфиг PyInstaller
-  installer.iss        — конфиг Inno Setup
-```
-
----
-
-## Сборка из исходников
-
-### Требования
-- Python 3.11+
-- PySide6
-
-### Установка зависимостей
 ```bash
 pip install -r requirements.txt
+python main.py                    # запуск
+python -m PyInstaller SelectVPN.spec --noconfirm   # сборка exe
 ```
 
-### Запуск в режиме разработки
+Для инсталлятора нужен [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 ```bash
-python main.py
+ISCC.exe installer.iss
 ```
 
-### Сборка exe
-```bash
-python -m PyInstaller SelectVPN.spec --noconfirm
+### Бинарные зависимости (папка bin/)
+
+Скачайте и поместите в `bin/` перед сборкой:
+- [xray-core](https://github.com/XTLS/Xray-core/releases) → `xray.exe`
+- [sing-box](https://github.com/SagerNet/sing-box/releases) → `sing-box.exe`
+- [tun2socks](https://github.com/xjasonlyu/tun2socks/releases) → `tun2socks.exe`
+- [wintun](https://www.wintun.net/) → `wintun.dll`
+- [Xray geoip/geosite](https://github.com/Loyalsoldier/v2ray-rules-dat/releases) → `geoip.dat`, `geosite.dat`
+
+## Структура
+
 ```
-Результат: `dist/SelectVPN/SelectVPN.exe`
-
-### Сборка инсталлятора
-Требуется [Inno Setup 6](https://jrsoftware.org/isinfo.php):
-```bash
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
+main.py               — точка входа
+app/core/
+  vpn.py              — контроллер (proxy / TUN)
+  xray.py             — Xray менеджер (прокси-режим)
+  singbox.py           — sing-box менеджер (TUN-режим)
+  singbox_config.py    — генератор конфига sing-box
+  config.py           — генератор конфига Xray
+  vless.py            — парсер VLESS-ссылок
+  proxy.py            — системный прокси Windows
+  tun.py              — TUN-адаптер (legacy)
+  updater.py          — автообновление
+app/gui/
+  main_window.py      — главное окно
+  power_button.py     — кнопка включения
+  server_dialog.py    — диалог серверов
+  process_picker.py   — выбор процессов
+  tray.py             — системный трей
+  styles.py           — тёмная тема
+app/storage/
+  settings.py         — настройки (%APPDATA%)
 ```
-Результат: `dist/SelectVPN-Setup.exe`
-
----
-
-## Настройки
-
-Хранятся в `%APPDATA%\SelectVPN\settings.json`:
-```json
-{
-  "servers": ["vless://..."],
-  "active_server_index": 0,
-  "domains": ["youtube.com", "chatgpt.com"],
-  "processes": ["telegram.exe"],
-  "tun_mode": false
-}
-```
-
----
-
-## Обновление
-
-Приложение автоматически проверяет наличие новых версий при запуске через GitHub Releases. При обнаружении обновления предлагает скачать и установить новую версию.
-
----
-
-## Решение проблем
-
-### Интернет пропал после закрытия приложения
-Приложение автоматически сбрасывает прокси при выходе. Если произошёл критический сбой:
-1. Откройте **Параметры Windows** → **Сеть и интернет** → **Прокси-сервер**
-2. Выключите **Использовать прокси-сервер**
-
-### Ошибка «Не удалось запустить Xray»
-- Проверьте что VLESS-ссылка корректна
-- Проверьте что сервер доступен
-- Посмотрите лог: `%APPDATA%\SelectVPN\xray_debug.log`
-
-### TUN-режим не работает
-- Приложение должно быть запущено **от имени администратора**
-- Проверьте что антивирус не блокирует `tun2socks.exe` и `wintun.dll`
-
-### Приложение не запускается повторно
-- SelectVPN допускает только один экземпляр
-- Проверьте трей — приложение может быть свёрнуто туда
-- Если зависло — завершите процесс `SelectVPN.exe` через Диспетчер задач
-
----
 
 ## Лицензия
 
-Бинарные компоненты:
-- [Xray-core](https://github.com/XTLS/Xray-core) — Mozilla Public License 2.0
-- [tun2socks](https://github.com/xjasonlyu/tun2socks) — GPL-3.0
-- [wintun](https://www.wintun.net/) — Prebuilt Binaries License
+MIT
+
+Бинарные компоненты: [Xray-core](https://github.com/XTLS/Xray-core) (MPL-2.0), [sing-box](https://github.com/SagerNet/sing-box) (GPL-3.0), [tun2socks](https://github.com/xjasonlyu/tun2socks) (GPL-3.0), [wintun](https://www.wintun.net/) (Prebuilt Binaries License).

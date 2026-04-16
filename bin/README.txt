@@ -1,20 +1,18 @@
-Положи сюда следующие файлы:
+Бинарные зависимости (не включены в git из-за размера).
+Скачайте и поместите сюда перед сборкой:
 
-1. xray.exe
-   Скачать: https://github.com/XTLS/Xray-core/releases
-   Файл: Xray-windows-64.zip → xray.exe
-
-2. tun2socks.exe
-   Скачать: https://github.com/xjasonlyu/tun2socks/releases
-   Файл: tun2socks-windows-amd64.zip → tun2socks.exe
-
-3. wintun.dll
-   Скачать: https://www.wintun.net
-   Файл: wintun.zip → amd64/wintun.dll
-   (положи рядом с tun2socks.exe)
+1. xray.exe         — https://github.com/XTLS/Xray-core/releases
+2. sing-box.exe     — https://github.com/SagerNet/sing-box/releases (windows-amd64)
+3. tun2socks.exe    — https://github.com/xjasonlyu/tun2socks/releases
+4. wintun.dll       — https://www.wintun.net/ (amd64/wintun.dll)
+5. geoip.dat        — https://github.com/Loyalsoldier/v2ray-rules-dat/releases
+6. geosite.dat      — https://github.com/Loyalsoldier/v2ray-rules-dat/releases
 
 Итого в папке bin/ должно быть:
-  bin/
-    xray.exe
-    tun2socks.exe
-    wintun.dll
+  xray.exe
+  sing-box.exe
+  tun2socks.exe
+  wintun.dll
+  geoip.dat
+  geosite.dat
+  README.txt

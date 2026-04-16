@@ -1,15 +1,29 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
+
+# Build artifacts
 build/
 dist/
 dist2/
-*.exe
 *.spec.bak
-.claude/
 
-# Binaries (large, not for git)
+# Binaries (too large for git — download separately)
 bin/xray.exe
+bin/sing-box.exe
 bin/tun2socks.exe
 bin/wintun.dll
 bin/geoip.dat
 bin/geosite.dat
+innosetup-installer.exe
+
+# IDE / tools
+.claude/
+.vscode/
+*.swp
+*.bak
+
+# OS
+Thumbs.db
+Desktop.ini
