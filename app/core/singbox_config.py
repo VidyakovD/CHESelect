@@ -138,12 +138,13 @@ def _build_outbound(server: dict) -> dict:
 
 
 def _out_vless(s: dict) -> dict:
+    # NOTE: multiplex removed — most Reality servers don't support it and
+    # drop connections. Server compatibility > slight speed gain.
     out = {
         "type": "vless",
         "server": s["host"], "server_port": s["port"],
         "uuid": s.get("uuid", ""),
         "tls": _tls(s),
-        "multiplex": _mux(),
         "tcp_fast_open": True,
     }
     t = _transport(s)
@@ -159,7 +160,6 @@ def _out_vmess(s: dict) -> dict:
         "uuid": s.get("uuid", ""),
         "alter_id": s.get("alter_id", 0),
         "security": s.get("security", "auto"),
-        "multiplex": _mux(),
         "tcp_fast_open": True,
     }
     if s.get("tls") == "tls":
@@ -189,7 +189,6 @@ def _out_trojan(s: dict) -> dict:
         "server": s["host"], "server_port": s["port"],
         "password": s.get("password", ""),
         "tls": _tls(s),
-        "multiplex": _mux(),
         "tcp_fast_open": True,
     }
     t = _transport(s)

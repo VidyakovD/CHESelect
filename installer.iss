@@ -30,7 +30,7 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 
 [Tasks]
 Name: "desktopicon";    Description: "Создать значок на рабочем столе"; GroupDescription: "Дополнительно:"; Flags: unchecked
-Name: "startupicon";   Description: "Запускать при старте Windows";     GroupDescription: "Дополнительно:"; Flags: unchecked
+Name: "startupicon";   Description: "Запускать при старте Windows (от имени администратора)"; GroupDescription: "Дополнительно:"; Flags: unchecked
 
 [Files]
 ; All app files from PyInstaller output
@@ -43,17 +43,16 @@ Name: "{group}\Удалить {#MyAppName}";   Filename: "{uninstallexe}"
 ; Desktop (optional)
 Name: "{autodesktop}\{#MyAppName}";     Filename: "{app}\{#MyAppExe}"; Tasks: desktopicon
 
-[Registry]
-; Autostart (optional task)
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
-  ValueType: string; ValueName: "{#MyAppName}"; \
-  ValueData: """{app}\{#MyAppExe}"""; \
-  Flags: uninsdeletevalue; Tasks: startupicon
-
 [Run]
+; Register Task Scheduler task to autostart as admin WITHOUT UAC prompt
+Filename: "schtasks"; \
+  Parameters: "/Create /TN ""SelectVPN Autostart"" /TR ""\""{app}\{#MyAppExe}\"""" /SC ONLOGON /RL HIGHEST /F"; \
+  Flags: runhidden; Tasks: startupicon
+
 Filename: "{app}\{#MyAppExe}"; \
   Description: "Запустить {#MyAppName}"; \
   Flags: nowait postinstall skipifsilent runascurrentuser
 
 [UninstallRun]
 Filename: "taskkill"; Parameters: "/F /IM {#MyAppExe}"; Flags: runhidden; RunOnceId: "KillApp"
+Filename: "schtasks"; Parameters: "/Delete /TN ""SelectVPN Autostart"" /F"; Flags: runhidden; RunOnceId: "RemoveTask"
