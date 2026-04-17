@@ -17,14 +17,21 @@ from ._paths import BIN_DIR
 
 SINGBOX_EXE = BIN_DIR / "sing-box.exe"
 
-# Debug log
+# Debug log with rotation
 _LOG_DIR = Path(os.environ.get("APPDATA", Path.home())) / "SelectVPN"
 _LOG_FILE = _LOG_DIR / "singbox_debug.log"
+_LOG_MAX_BYTES = 2 * 1024 * 1024   # 2 MB
 
 
 def _debug(msg: str):
     try:
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        # Rotate if too large
+        if _LOG_FILE.exists() and _LOG_FILE.stat().st_size > _LOG_MAX_BYTES:
+            old = _LOG_DIR / "singbox_debug.log.old"
+            if old.exists():
+                old.unlink()
+            _LOG_FILE.rename(old)
         with open(_LOG_FILE, "a", encoding="utf-8") as f:
             f.write(f"{msg}\n")
     except Exception:

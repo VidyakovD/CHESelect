@@ -34,6 +34,8 @@ class VpnController:
         self._state        = "disconnected"
         self._tun_active   = False
         self._using_singbox = False
+        self._retry_count  = 0      # for auto-reconnect backoff
+        self._user_disconnected = False  # True if user clicked disconnect
 
         self._xray    = XrayManager(on_status=self._on_engine_status, on_log=self._fwd_log)
         self._singbox = SingBoxManager(on_status=self._on_engine_status, on_log=self._fwd_log)
@@ -49,6 +51,7 @@ class VpnController:
         threading.Thread(target=self._connect, daemon=True).start()
 
     def disconnect(self):
+        self._user_disconnected = True   # prevent auto-reconnect
         threading.Thread(target=self._disconnect, daemon=True).start()
 
     def reconnect(self):
@@ -57,6 +60,7 @@ class VpnController:
 
     # ------------------------------------------------------------------
     def _connect(self):
+        self._user_disconnected = False   # reset on any explicit connect
         self._set_state("connecting")
 
         server_link = self.settings.active_server
@@ -117,6 +121,7 @@ class VpnController:
             self._tun_active = False
             self._using_singbox = False
 
+        self._retry_count = 0   # success → reset backoff
         self._set_state("connected")
 
     def _disconnect(self):
@@ -150,15 +155,25 @@ class VpnController:
 
     def _on_engine_status(self, status: str):
         if status == "crashed" and self._state == "connected":
-            if not self._tun_active:
-                clear_proxy()
-            if self._using_singbox:
-                self._singbox.stop()
-            else:
-                self._xray.stop()
-            self._tun_active = False
-            self._using_singbox = False
-            self._set_state("error", "VPN-движок неожиданно завершился.")
+            self._stop_all()
+
+            # Auto-reconnect unless user explicitly disconnected
+            if self._user_disconnected:
+                self._set_state("disconnected")
+                return
+
+            self._retry_count += 1
+            if self._retry_count > 5:
+                self._set_state("error", "VPN неожиданно завершился.\nПревышено число попыток переподключения.")
+                return
+
+            # Exponential backoff: 2, 4, 8, 16, 32 seconds
+            delay = 2 ** self._retry_count
+            self._set_state("connecting", f"Переподключение через {delay}с...")
+            import time
+            time.sleep(delay)
+            if not self._user_disconnected:
+                self._connect()
 
     def _fwd_log(self, line: str):
         self.on_log(line)

@@ -91,6 +91,12 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._refresh_server_label()
 
+        # Debounce timer for reconnects (collapse rapid settings changes)
+        self._reconnect_timer = QTimer(self)
+        self._reconnect_timer.setSingleShot(True)
+        self._reconnect_timer.setInterval(800)
+        self._reconnect_timer.timeout.connect(self._do_reconnect_now)
+
         # Tray
         self._tray = TrayIcon(self)
         self._tray.show()
@@ -453,6 +459,11 @@ class MainWindow(QMainWindow):
         listw.setItemWidget(item, row_widget)
 
     def _reconnect_if_active(self):
+        """Debounced — rapid changes collapse into one reconnect."""
+        if self.vpn.state == "connected":
+            self._reconnect_timer.start()  # restarts if already running
+
+    def _do_reconnect_now(self):
         if self.vpn.state == "connected":
             self.vpn.reconnect()
 
