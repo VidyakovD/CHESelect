@@ -113,15 +113,17 @@ class SingBoxManager:
         if self._proc:
             try:
                 self._proc.terminate()
-                self._proc.wait(timeout=5)
+                self._proc.wait(timeout=2)
             except Exception:
-                try:
-                    self._proc.kill()
-                    self._proc.wait(timeout=3)
-                except Exception:
-                    pass
+                pass
+            # Always force-kill to ensure TUN is released quickly
+            try:
+                self._proc.kill()
+                self._proc.wait(timeout=2)
+            except Exception:
+                pass
             self._proc = None
-            time.sleep(1)  # let OS release TUN interface
+            time.sleep(1.5)  # let OS release TUN interface
 
         if self._config_file and os.path.exists(self._config_file):
             try:

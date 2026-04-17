@@ -50,8 +50,11 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
             "tag": "tun-in", "type": "tun",
             "address": ["172.19.0.1/30"],
             "auto_route": True, "strict_route": True,
-            "stack": "system",
-            "sniff": True, "sniff_override_destination": True,
+            "stack": "system",  # fastest on Windows
+            "mtu": 9000,        # larger MTU = higher throughput
+            "sniff": True,
+            "sniff_override_destination": True,
+            "sniff_timeout": "100ms",  # don't block long on sniff
         }]
     else:
         inbounds = [
@@ -71,7 +74,7 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
     dns = {
         "servers": [
             {"tag": "dns-proxy",  "address": "8.8.8.8", "detour": "proxy"},
-            {"tag": "dns-direct", "address": "8.8.8.8", "detour": "direct"},
+            {"tag": "dns-direct", "address": "1.1.1.1", "detour": "direct"},
         ],
         "rules": [
             *(
@@ -80,10 +83,15 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
             ),
         ],
         "final": "dns-direct",
+        "strategy": "prefer_ipv4",
+        "disable_cache": False,
+        "disable_expire": False,
+        "independent_cache": True,
     }
 
     return {
-        "log": {"level": "info", "timestamp": True},
+        # Warn level = less overhead, only meaningful messages
+        "log": {"level": "warn", "timestamp": True},
         "dns": dns,
         "inbounds": inbounds,
         "outbounds": outbounds,
@@ -91,6 +99,12 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
             "rules": rules,
             "final": "direct",
             "auto_detect_interface": True,
+        },
+        "experimental": {
+            "cache_file": {
+                "enabled": True,
+                "store_fakeip": False,
+            },
         },
     }
 
@@ -120,6 +134,8 @@ def _out_vless(s: dict) -> dict:
         "server": s["host"], "server_port": s["port"],
         "uuid": s.get("uuid", ""),
         "tls": _tls(s),
+        "multiplex": _mux(),
+        "tcp_fast_open": True,
     }
     t = _transport(s)
     if t:
@@ -134,6 +150,8 @@ def _out_vmess(s: dict) -> dict:
         "uuid": s.get("uuid", ""),
         "alter_id": s.get("alter_id", 0),
         "security": s.get("security", "auto"),
+        "multiplex": _mux(),
+        "tcp_fast_open": True,
     }
     if s.get("tls") == "tls":
         out["tls"] = {
@@ -162,6 +180,8 @@ def _out_trojan(s: dict) -> dict:
         "server": s["host"], "server_port": s["port"],
         "password": s.get("password", ""),
         "tls": _tls(s),
+        "multiplex": _mux(),
+        "tcp_fast_open": True,
     }
     t = _transport(s)
     if t:
@@ -226,6 +246,16 @@ def _out_wireguard(s: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════
 # Shared helpers
 # ══════════════════════════════════════════════════════════════════
+
+def _mux() -> dict:
+    """Multiplex config — one connection for many streams = faster."""
+    return {
+        "enabled": True,
+        "protocol": "smux",
+        "max_streams": 16,
+        "padding": True,
+    }
+
 
 def _tls(server: dict) -> dict:
     security = server.get("security", "none")
