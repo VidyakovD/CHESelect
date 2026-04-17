@@ -8,6 +8,7 @@ Two modes:
 
 import atexit
 import ctypes
+import subprocess
 import sys
 import threading
 from .link_parser     import parse_link, needs_singbox
@@ -25,6 +26,32 @@ def _is_admin() -> bool:
         return False
 
 
+def _detect_conflicting_vpn() -> str:
+    """
+    Return name of a conflicting VPN adapter (AmneziaVPN, OpenVPN, WireGuard, etc.)
+    that owns the default route. Empty string if none.
+    """
+    try:
+        r = subprocess.run(
+            'powershell -NoProfile -Command "'
+            "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' "
+            "-ErrorAction SilentlyContinue | "
+            "Where-Object { $_.InterfaceAlias -notlike 'Ethernet*' "
+            "-and $_.InterfaceAlias -notlike 'Wi-Fi*' "
+            "-and $_.InterfaceAlias -notlike 'SelectVPN*' "
+            "-and $_.InterfaceAlias -notlike 'Local Area Connection*' } "
+            "| Select-Object -First 1).InterfaceAlias"
+            '"',
+            shell=True, capture_output=True, text=True,
+            encoding="cp866", errors="replace", timeout=5,
+            creationflags=0x08000000,
+        )
+        name = r.stdout.strip()
+        return name if name else ""
+    except Exception:
+        return ""
+
+
 class VpnController:
     def __init__(self, settings, on_state_change=None, on_log=None):
         self.settings        = settings
@@ -36,6 +63,8 @@ class VpnController:
         self._using_singbox = False
         self._retry_count  = 0      # for auto-reconnect backoff
         self._user_disconnected = False  # True if user clicked disconnect
+        self._heartbeat_stop = threading.Event()
+        self._heartbeat_thread = None
 
         self._xray    = XrayManager(on_status=self._on_engine_status, on_log=self._fwd_log)
         self._singbox = SingBoxManager(on_status=self._on_engine_status, on_log=self._fwd_log)
@@ -80,6 +109,13 @@ class VpnController:
             self._set_state("error", "TUN-режим требует прав администратора.\nЗапустите приложение от имени админа.")
             return
 
+        # Check for conflicting VPN (AmneziaVPN, OpenVPN, WireGuard, etc.)
+        if tun_mode:
+            conflict = _detect_conflicting_vpn()
+            if conflict:
+                self._set_state("error", f"Обнаружен другой активный VPN: {conflict}.\nВыключите его перед включением TUN-режима.")
+                return
+
         if use_singbox:
             # ── sing-box (TUN or sing-box-only protocols) ─────
             config = build_singbox_config(
@@ -122,6 +158,7 @@ class VpnController:
             self._using_singbox = False
 
         self._retry_count = 0   # success → reset backoff
+        self._start_heartbeat()
         self._set_state("connected")
 
     def _disconnect(self):
@@ -139,6 +176,7 @@ class VpnController:
 
     def _stop_all(self):
         """Synchronously stop everything."""
+        self._stop_heartbeat()
         if not self._tun_active:
             clear_proxy()
         if self._using_singbox:
@@ -147,6 +185,30 @@ class VpnController:
             self._xray.stop()
         self._tun_active = False
         self._using_singbox = False
+
+    # ── Heartbeat — detect silent engine death ──────────────────
+    def _start_heartbeat(self):
+        self._stop_heartbeat()
+        self._heartbeat_stop = threading.Event()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop, daemon=True
+        )
+        self._heartbeat_thread.start()
+
+    def _stop_heartbeat(self):
+        if self._heartbeat_stop:
+            self._heartbeat_stop.set()
+        self._heartbeat_thread = None
+
+    def _heartbeat_loop(self):
+        while not self._heartbeat_stop.wait(5):
+            if self._state != "connected":
+                return
+            engine = self._singbox if self._using_singbox else self._xray
+            if not engine.is_running():
+                # Engine died silently — trigger the same path as crash
+                self._on_engine_status("crashed")
+                return
 
     # ------------------------------------------------------------------
     def _set_state(self, state: str, detail: str = ""):
