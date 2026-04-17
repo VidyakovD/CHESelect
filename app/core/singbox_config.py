@@ -13,7 +13,7 @@ import json
 
 
 def build_singbox_config(server: dict, domains: list[str], processes: list[str],
-                         tun_mode: bool = True) -> dict:
+                         tun_mode: bool = True, exclusions: list[str] = None) -> dict:
     """
     Build a sing-box JSON config.
 
@@ -28,6 +28,15 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
 
     # --- Route rules ------------------------------------------------------
     rules = [{"protocol": "dns", "action": "hijack-dns"}]
+
+    # HIGHEST PRIORITY: exclusions bypass VPN entirely
+    if exclusions:
+        ex_domains = [e for e in exclusions if not _is_ip_like(e)]
+        ex_ips     = [e for e in exclusions if _is_ip_like(e)]
+        if ex_domains:
+            rules.append({"domain_suffix": ex_domains, "outbound": "direct"})
+        if ex_ips:
+            rules.append({"ip_cidr": [_to_cidr(ip) for ip in ex_ips], "outbound": "direct"})
 
     if tun_mode and processes:
         names = set()
@@ -246,6 +255,22 @@ def _out_wireguard(s: dict) -> dict:
 # ══════════════════════════════════════════════════════════════════
 # Shared helpers
 # ══════════════════════════════════════════════════════════════════
+
+def _is_ip_like(s: str) -> bool:
+    """Check if string looks like an IP (not a domain)."""
+    parts = s.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p.split("/")[0]) <= 255 for p in parts)
+    except Exception:
+        return False
+
+
+def _to_cidr(ip: str) -> str:
+    """Convert '1.2.3.4' → '1.2.3.4/32', keep existing CIDR as-is."""
+    return ip if "/" in ip else f"{ip}/32"
+
 
 def _mux() -> dict:
     """Multiplex config — one connection for many streams = faster."""

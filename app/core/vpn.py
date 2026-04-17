@@ -123,6 +123,7 @@ class VpnController:
                 self.settings.domains,
                 self.settings.processes,
                 tun_mode=tun_mode,
+                exclusions=self.settings.exclusions,
             )
             ok = self._singbox.start(config)
             if not ok:
@@ -144,6 +145,7 @@ class VpnController:
                 server,
                 self.settings.domains,
                 self.settings.processes,
+                exclusions=self.settings.exclusions,
             )
             ok = self._xray.start(config)
             if not ok:

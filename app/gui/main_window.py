@@ -179,8 +179,9 @@ class MainWindow(QMainWindow):
         # ── Tabs ──────────────────────────────────────────────────
         tabs = QTabWidget()
         tabs.setDocumentMode(True)
-        tabs.addTab(self._build_domain_tab(),  "ДОМЕНЫ")
-        tabs.addTab(self._build_process_tab(), "ПРИЛОЖЕНИЯ")
+        tabs.addTab(self._build_domain_tab(),    "ДОМЕНЫ")
+        tabs.addTab(self._build_process_tab(),   "ПРИЛОЖЕНИЯ")
+        tabs.addTab(self._build_exclusion_tab(), "ИСКЛЮЧЕНИЯ")
         layout.addWidget(tabs, stretch=1)
 
         layout.addSpacing(10)
@@ -275,6 +276,41 @@ class MainWindow(QMainWindow):
         btn.setObjectName("btn_add")
         btn.setFixedSize(38, 38)
         btn.clicked.connect(self._pick_process)
+        row.addWidget(btn)
+        lay.addLayout(row)
+        return w
+
+    def _build_exclusion_tab(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(0, 10, 0, 0)
+        lay.setSpacing(8)
+
+        hint = QLabel(
+            "Эти IP и домены НИКОГДА не идут через VPN.\n"
+            "Полезно для антидетект-браузеров (Dolphin) —\n"
+            "добавь сюда IP их прокси-серверов."
+        )
+        hint.setStyleSheet("color: #2a2a3a; font-size: 11px;")
+        hint.setWordWrap(True)
+        lay.addWidget(hint)
+
+        self.list_exclusions = QListWidget()
+        self.list_exclusions.setSpacing(1)
+        lay.addWidget(self.list_exclusions, stretch=1)
+        self._reload_exclusions()
+
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self.input_exclusion = QLineEdit()
+        self.input_exclusion.setPlaceholderText("185.128.42.8 или example.com")
+        self.input_exclusion.returnPressed.connect(self._add_exclusion)
+        row.addWidget(self.input_exclusion)
+
+        btn = QPushButton("+")
+        btn.setObjectName("btn_add")
+        btn.setFixedSize(38, 38)
+        btn.clicked.connect(self._add_exclusion)
         row.addWidget(btn)
         lay.addLayout(row)
         return w
@@ -398,6 +434,27 @@ class MainWindow(QMainWindow):
         self.list_domains.clear()
         for d in self.settings.domains:
             self._add_list_item(self.list_domains, d, self._remove_domain)
+
+    # ── Exclusions ────────────────────────────────────────────────
+
+    def _add_exclusion(self):
+        text = self.input_exclusion.text().strip().lower()
+        if not text:
+            return
+        if self.settings.add_exclusion(text):
+            self._add_list_item(self.list_exclusions, text, self._remove_exclusion)
+            self.input_exclusion.clear()
+            self._reconnect_if_active()
+
+    def _remove_exclusion(self, value: str, item: QListWidgetItem):
+        self.settings.remove_exclusion(value)
+        self.list_exclusions.takeItem(self.list_exclusions.row(item))
+        self._reconnect_if_active()
+
+    def _reload_exclusions(self):
+        self.list_exclusions.clear()
+        for e in self.settings.exclusions:
+            self._add_list_item(self.list_exclusions, e, self._remove_exclusion)
 
     # ── Processes ─────────────────────────────────────────────────
 

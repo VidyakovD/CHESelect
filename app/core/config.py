@@ -19,7 +19,8 @@ SOCKS_PORT = 10808
 DNS_PORT   = 10853   # local DNS server (UDP) for fake-ip
 
 
-def build_config(server: dict, domains: list[str], processes: list[str], tun_mode: bool = False) -> dict:
+def build_config(server: dict, domains: list[str], processes: list[str],
+                 tun_mode: bool = False, exclusions: list[str] = None) -> dict:
     """
     Build a full xray-core JSON config.
 
@@ -31,12 +32,24 @@ def build_config(server: dict, domains: list[str], processes: list[str], tun_mod
     # --- Routing rules -------------------------------------------------
     routing_rules = []
 
-    # NOTE: processName routing does not work via tun2socks/SOCKS proxy —
-    # Xray can't see which process made the request through SOCKS.
-    # TUN mode is still useful: it captures ALL system traffic (not just
-    # browsers), so domain-based routing works for every app.
+    # HIGHEST PRIORITY: exclusions bypass VPN entirely
+    if exclusions:
+        ex_domains = [e for e in exclusions if not _is_ip(e)]
+        ex_ips     = [e for e in exclusions if _is_ip(e)]
+        if ex_domains:
+            routing_rules.append({
+                "type": "field",
+                "domain": [f"domain:{d}" for d in ex_domains],
+                "outboundTag": "direct",
+            })
+        if ex_ips:
+            routing_rules.append({
+                "type": "field",
+                "ip": ex_ips,
+                "outboundTag": "direct",
+            })
 
-    # 2. Domain-based rules
+    # Domain-based rules
     if domains:
         xray_domains = _to_xray_domains(domains)
         routing_rules.append({
@@ -140,6 +153,16 @@ def build_config_json(server: dict, domains: list[str], processes: list[str]) ->
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
+
+def _is_ip(s: str) -> bool:
+    parts = s.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        return all(0 <= int(p.split("/")[0]) <= 255 for p in parts)
+    except Exception:
+        return False
+
 
 def _to_xray_domains(domains: list[str]) -> list[str]:
     """

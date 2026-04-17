@@ -16,9 +16,10 @@ def _settings_path() -> Path:
 _DEFAULTS = {
     "servers":   [],   # list of VLESS link strings
     "active_server_index": 0,
-    "domains":   [],   # list of domain strings
-    "processes": [],   # list of process name strings
-    "tun_mode":  False, # True = TUN adapter, False = HTTP system proxy
+    "domains":   [],   # list of domain strings (→ VPN)
+    "processes": [],   # list of process names (→ VPN)
+    "exclusions": [],  # list of IPs/domains that MUST bypass VPN
+    "tun_mode":  False,
     "connected": False,
 }
 
@@ -114,6 +115,25 @@ class Settings:
     def remove_process(self, name: str):
         if name in self._data["processes"]:
             self._data["processes"].remove(name)
+            self.save()
+
+    # --- Exclusions ---------------------------------------------------
+
+    @property
+    def exclusions(self) -> list[str]:
+        return self._data.get("exclusions", [])
+
+    def add_exclusion(self, value: str) -> bool:
+        value = value.strip().lower()
+        if value and value not in self._data.get("exclusions", []):
+            self._data.setdefault("exclusions", []).append(value)
+            self.save()
+            return True
+        return False
+
+    def remove_exclusion(self, value: str):
+        if value in self._data.get("exclusions", []):
+            self._data["exclusions"].remove(value)
             self.save()
 
     # --- TUN mode -----------------------------------------------------
