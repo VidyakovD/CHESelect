@@ -58,12 +58,15 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
         inbounds = [{
             "tag": "tun-in", "type": "tun",
             "address": ["172.19.0.1/30"],
-            "auto_route": True, "strict_route": True,
-            "stack": "system",  # fastest on Windows
-            "mtu": 9000,        # larger MTU = higher throughput
+            "auto_route": True,
+            # strict_route=False: no WFP firewall rules.
+            # If sing-box crashes, OS stays clean (no "Block all DNS" leftover).
+            "strict_route": False,
+            "stack": "system",
+            "mtu": 1500,        # standard MTU (9000 caused fragmentation issues)
             "sniff": True,
             "sniff_override_destination": True,
-            "sniff_timeout": "100ms",  # don't block long on sniff
+            "sniff_timeout": "100ms",
         }]
     else:
         inbounds = [

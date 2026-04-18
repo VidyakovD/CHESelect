@@ -112,18 +112,21 @@ class SingBoxManager:
     def stop(self):
         if self._proc:
             try:
+                # Graceful shutdown: give sing-box time to clean up
+                # WFP filters and TUN interface. Force kill leaves
+                # "Block all DNS" firewall rules in Windows.
                 self._proc.terminate()
-                self._proc.wait(timeout=2)
-            except Exception:
-                pass
-            # Always force-kill to ensure TUN is released quickly
-            try:
-                self._proc.kill()
-                self._proc.wait(timeout=2)
+                self._proc.wait(timeout=6)
+            except subprocess.TimeoutExpired:
+                try:
+                    self._proc.kill()
+                    self._proc.wait(timeout=2)
+                except Exception:
+                    pass
             except Exception:
                 pass
             self._proc = None
-            time.sleep(1.5)  # let OS release TUN interface
+            time.sleep(1.0)
 
         if self._config_file and os.path.exists(self._config_file):
             try:
