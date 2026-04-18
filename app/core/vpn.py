@@ -203,14 +203,53 @@ class VpnController:
         self._heartbeat_thread = None
 
     def _heartbeat_loop(self):
-        while not self._heartbeat_stop.wait(5):
+        """
+        Checks every 10s:
+          1. Engine process is alive
+          2. Default gateway hasn't changed (sleep/wake, Wi-Fi swap, etc)
+        If either fails → treat as crash → auto-reconnect.
+        """
+        last_gateway = self._get_default_gateway()
+
+        while not self._heartbeat_stop.wait(10):
             if self._state != "connected":
                 return
+
+            # 1. Engine process alive?
             engine = self._singbox if self._using_singbox else self._xray
             if not engine.is_running():
-                # Engine died silently — trigger the same path as crash
                 self._on_engine_status("crashed")
                 return
+
+            # 2. Network changed (sleep/wake, Wi-Fi ↔ Ethernet, etc)?
+            current_gw = self._get_default_gateway()
+            if current_gw and last_gateway and current_gw != last_gateway:
+                self.on_log(f"[vpn] Network changed ({last_gateway} → {current_gw}), reconnecting...")
+                self._on_engine_status("crashed")
+                return
+            if current_gw:
+                last_gateway = current_gw
+
+    @staticmethod
+    def _get_default_gateway() -> str:
+        """Get the current default gateway that is NOT our TUN adapter."""
+        try:
+            r = subprocess.run(
+                'powershell -NoProfile -Command "'
+                "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' "
+                "-ErrorAction SilentlyContinue | "
+                "Where-Object { $_.InterfaceAlias -notlike '*tun*' "
+                "-and $_.InterfaceAlias -notlike '*SelectVPN*' } | "
+                "Sort-Object RouteMetric | Select-Object -First 1).NextHop"
+                '"',
+                shell=True, capture_output=True, text=True,
+                encoding="cp866", errors="replace", timeout=3,
+                creationflags=0x08000000,
+            )
+            gw = r.stdout.strip()
+            return gw if gw and gw[0].isdigit() else ""
+        except Exception:
+            return ""
 
     # ------------------------------------------------------------------
     def _set_state(self, state: str, detail: str = ""):

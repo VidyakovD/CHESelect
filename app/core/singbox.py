@@ -45,11 +45,18 @@ class SingBoxManager:
         self._config_file = None
         self.on_status = on_status or (lambda s: None)
         self.on_log    = on_log    or (lambda l: None)
+        # Watchdog: count DNS timeouts in a rolling window
+        self._dns_fail_times = []
+        self._watchdog_triggered = False
 
     def start(self, config: dict) -> bool:
         if self.is_running():
             self.stop()
             time.sleep(1)  # give OS time to release TUN interface
+
+        # reset watchdog state on each start
+        self._dns_fail_times = []
+        self._watchdog_triggered = False
 
         _debug("--- sing-box start() ---")
         _debug(f"SINGBOX_EXE: {SINGBOX_EXE}")
@@ -147,8 +154,37 @@ class SingBoxManager:
                 if line:
                     _debug(f"[sing-box] {line}")
                     self.on_log(line)
+                    self._check_watchdog(line)
         except Exception as e:
             _debug(f"[reader] exception: {e}")
 
         if self._proc and self._proc.poll() is not None:
+            self.on_status("crashed")
+
+    def _check_watchdog(self, line: str):
+        """
+        If sing-box produces many DNS timeouts in a short window,
+        the tunnel is effectively dead — trigger reconnect.
+        """
+        if self._watchdog_triggered:
+            return
+
+        low = line.lower()
+        is_fail = (
+            "context deadline exceeded" in low
+            or "no route to internet" in low
+            or "dns: exchange failed" in low
+        )
+        if not is_fail:
+            return
+
+        now = time.time()
+        self._dns_fail_times.append(now)
+        # Keep only failures within last 15 seconds
+        self._dns_fail_times = [t for t in self._dns_fail_times if now - t < 15]
+
+        # 30+ failures in 15s = tunnel is dead
+        if len(self._dns_fail_times) >= 30:
+            self._watchdog_triggered = True
+            _debug(f"[watchdog] {len(self._dns_fail_times)} DNS failures in 15s — triggering reconnect")
             self.on_status("crashed")
