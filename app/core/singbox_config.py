@@ -59,13 +59,15 @@ def build_singbox_config(server: dict, domains: list[str], processes: list[str],
             "tag": "tun-in", "type": "tun",
             "address": ["172.19.0.1/30"],
             "auto_route": True,
-            # strict_route=False: no WFP firewall rules.
-            # If sing-box crashes, OS stays clean (no "Block all DNS" leftover).
             "strict_route": False,
             "stack": "system",
-            "mtu": 1500,        # standard MTU (9000 caused fragmentation issues)
+            "mtu": 1500,
             "sniff": True,
-            "sniff_override_destination": True,
+            # sniff_override_destination=False:
+            # keep original IP as destination so IP-based exclusions work
+            # (e.g. Dolphin proxy IP 185.128.42.8 → direct).
+            # Sniffed domain is still available for `domain:` routing rules.
+            "sniff_override_destination": False,
             "sniff_timeout": "100ms",
         }]
     else:
